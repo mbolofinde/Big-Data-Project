@@ -6,9 +6,7 @@
 https://www.7-zip.org/a/7z1900-x64.exe
 
 
-
 2. Download Virutal box:
-
 
 
 For Windows : https://download.virtualbox.org/virtualbox/6.1.18/VirtualBox-6.1.18-142142-Win.exe
@@ -40,8 +38,4 @@ https://drive.google.com/file/d/1tksxTipPYeCTrtpumOYBe-EC8PCT6ZBM/view?usp=shari
 https://drive.google.com/file/d/1Egq2s3COvDjzcm2COXiT_Chblr-rQz0-/view?usp=sharing
 
 
-
-
-
 Once the softwares are downloaded, Install them by following the instructions in the video.
-

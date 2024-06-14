@@ -40,3 +40,66 @@ MapReduce: A programming model for processing large data sets with a distributed
 Problems Being Solved: Each component is designed to solve specific challenges in big data handling—HDFS for storage, Yarn for resource management, and MapReduce for processing.
 Application: Integral for developers building applications that require scalable, efficient, and reliable data processing capabilities across large clusters.
 
+[Notes] Serialized File Formats
+Serialization :
+Serialization is the process of converting a data structure or an object into a format that can be easily stored or transmitted over a network and can be easily reconstructed later.
+For example : If I have the below data :
+“This is my Data”
+Now this data will be serialized ie converted into stream of bytes(human unreadable format). So serialized data is unreadable. IT is either stored or transmitted over a network. Then this is deserialized ie converted back to its original form which is readable.
+
+Advantages of Serialization :
+1) Serialized data are easy and fast to transmit over a network. Read and write are fast
+2) Some serialized file formats offer good compression, they can be encrypted
+3) Deserialization also does not take much time
+
+
+
+Serialized File Formats in Big Data :
+1) Sequence file format
+2) RC File format
+3) ORC File Format
+4) AVRO File Format
+5) Parquet File Format
+
+For more details on these files, check the Hive document.
+
+1) Sequence File Format : Its pure Java serialization. It helps in easy retrieval of data But since it is java serialization, it works best for map reduce only. Does not work well with Spark or other tech. Since map reduce is extinct, so is sequence
+
+2) RC File Format: Row Columnar File Format : Write takes time. Read would be easy .Columnar file format are easy to read. No compression technique so data size would be huge
+
+3) Parquet : Columnar File Format .Reasonable Compression technique (50 to 55%).
+Compression technique supported by Parquet : snappy(default),lzo,gzip
+Parquet is used in Target system as querying is fast
+
+4) ORC : Optimized Row Columnar File Format.It is Columnar FIle format
+75% compression Ratio. Use when you are dealing with historical data when you are not using it often. Decompression will take time. So ORC is used for historical data storages
+ORC has ZLIB compression which provides much more compression. It also has snappy but has less compression to ZLIB
+
+5) AVRO - Row File Format
+File size is big. Write is easy. Read is tough bcoz its row file format.AVRO supports Schema Evolution(channginng the structure of the data)
+
+Sequence File Format and RC file format are not used much. Parquet is the most preferred one followed by both ORC and AVRO
+
+Note :
+Sqoop supports - Sequence, Parquet, AVRO directly
+ORC - Sqoop needs Hive Integration
+
+
+
+AVRO vs ORC vs Parquet :
+
+1) AVRO is a row Format while ORC and Parquet are columnar format
+
+2) Because AVRO is row Format, it is write heavy while ORC and Parquet are read heavy.
+
+3) In all these 3 file formats, along with data, the schema will also be there. This means you can take these files from one machine and load it in another machine and it will know what the data is about and will be able to process
+
+4) All these file formats can be split across multiple multiple disks. Therefore scalability and parallel processing is not an issue.
+
+5) ORC provides maximum compression followed by Parquet followed by AVRO
+
+6) If the schema keeps changing then AVRO is preferred as AVRO supports superior schema evolution. ORC also supports to some extent but AVRO is best
+
+7) AVRO is commonly used in streaming apps like Kafka, Parquet is commonly used in Spark and ORC in Hive. Parquet is good in storing nested data. So usually in spark, parquet is used
+
+8) Because compression of ORCFile is more, it is used for space efficiency. Query time will be little more as it has to decompress the data. In case of AVRO, the time efficiency would be good as it takes little less time to decompress. So if you want to save space, use ORC . if you want to save time, use Parquet

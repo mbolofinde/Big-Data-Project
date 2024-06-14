@@ -39,3 +39,4 @@ Yarn (Yet Another Resource Negotiator): Manages and monitors cluster resources, 
 MapReduce: A programming model for processing large data sets with a distributed algorithm on a Hadoop cluster.
 Problems Being Solved: Each component is designed to solve specific challenges in big data handling—HDFS for storage, Yarn for resource management, and MapReduce for processing.
 Application: Integral for developers building applications that require scalable, efficient, and reliable data processing capabilities across large clusters.
+

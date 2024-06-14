@@ -86,6 +86,7 @@ ORC - Sqoop needs Hive Integration
 
 
 
+
 AVRO vs ORC vs Parquet :
 
 1) AVRO is a row Format while ORC and Parquet are columnar format
@@ -103,3 +104,114 @@ AVRO vs ORC vs Parquet :
 7) AVRO is commonly used in streaming apps like Kafka, Parquet is commonly used in Spark and ORC in Hive. Parquet is good in storing nested data. So usually in spark, parquet is used
 
 8) Because compression of ORCFile is more, it is used for space efficiency. Query time will be little more as it has to decompress the data. In case of AVRO, the time efficiency would be good as it takes little less time to decompress. So if you want to save space, use ORC . if you want to save time, use Parquet
+
+[Notes] sqoop import
+sqoop import:
+
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 1 --table customers  --target-dir /user/cloudera/data_import
+
+
+
+Try executing the command again. It fails. So use append:
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 1 --table customers --append  --target-dir /user/cloudera/data_import
+
+
+
+What if we want to overwrite:
+
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 1 --table customers --delete-target-dir  --target-dir /user/cloudera/data_import
+
+
+
+[Notes] Sqoop Multiple Mappers
+Multiple Threading in sqoop:
+Multiple mappers will be working on importing the file. i.e multiple threads will work on importing the file . This is basically like parallelism. We mention the mappers using -m. So -m 1 is one mapper i.e one thread only. So you will see only one part file in output directory.
+
+Add 2 mappers here. Add split-by column as well:
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 2  --split-by customer_id --table customers --delete-target-dir  --target-dir /user/cloudera/data_import
+
+
+
+Now what happens if you dont specify number of mappers? If you dont specify number of mappers, it will by default take 4
+
+If you dont specify split-by when the number of mappers are more than 1, it will fail. However if the table has a primary column, then sqoop will take that primary column as the split-by column
+
+
+[Notes] import portion of data
+using where:
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 2 --table customers --split-by customer_id
+--where 'customer_state="TX"'  --delete-target-dir --target-dir /user/cloudera/where_eg
+
+
+
+using select columns:
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 2 --table customers --split-by customer_id
+--where 'customer_state="TX"'  --columns 'customer_fname,customer_lname,customer_state,customer_city' --delete-target-dir --target-dir /user/cloudera/where_eg
+
+
+
+query:
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 2 --table customers --split-by customer_id
+--query 'customer_fname,customer_lname,customer_state,customer_city from customers where  $CONDITIONS' --delete-target-dir --target-dir /user/cloudera/query_eg
+
+
+
+$CONDITIONS: When you are executing sqoop in parallel, each sqoop process will replace this $CONDITIONS with a unique condition expression. Here one mapper may execute your query with custid<5 and another mapper with cust_id>5
+
+
+
+What if we also have a where clause condition in our query. We will still need to use $CONDITIonS as below :
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 2 --table customers --split-by customer_id
+--query 'customer_fname,customer_lname,customer_state,customer_city from customers where customer_state="TX" AND  $CONDITIONS' --delete-target-dir --target-dir /user/cloudera/query_eg
+
+
+
+[Notes] Sqoop eval and change the file delimiter
+Sqoop Eval:
+
+Sometimes we may want to evaluate the data before importing into Hadoop. Sqoop eval will help us doing this. Sqoop Eval basically is connecting to database from sqoop command. All the sql commands that you can fire on database, we can execute them using the sqoop eval. When you put a sql query in sqoop eval, it will connect to the database, fire the command and display the results on the edge node. We use eval instead of import and place the query in --query.
+
+Eg :sqoop eval --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --query "Select * from customers limit 10";
+
+
+
+Changing Import delimiter:
+When sqoop imports the data into hadoop, by default it stores the data in comma delimeter. We can change this using : fields-terminated-by and lines-terminated-by
+
+
+
+Eg: sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 2 --table customers --split-by customer_id --fields-terminated-by '|' --lines-terminated-by '\n' --delete-target-dir --target-dir /user/cloudera/customer
+
+
+
+[Notes] incremental import
+
+Sqoop Incremental Import:
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 2 --table customers --split-by customer_id
+--target-dir /user/cloudera/customer1 --incremental append --check-column customer_id --last-value 0
+
+--incremental append : to tell that it is incremental load
+--check-column : Which colum you want to use to do the incremental load. Here it is custid
+--last-value : sqoop will import data that is greater than this last-value. Here it will import where custid>0. This last value an be an integer, date or timestamp but not string as it will search for data greater than that last value
+
+Next time, you need to change the last-value to import from the value greater than the last imported.So, everytime you need to import any records, you must remember the last-value from previous import and use it in the sqoop command. This is very manual. What if sqoop does this job for us ? What if sqoop remembers the last-value and imports from that last-value in next sqoop ? This is possible by creating a sqoop job.
+
+
+
+We create a sqoop job with an import statement. We give it a name. We then execute the job which will internally execute the sqoop import and the last-value is then saved by the sqoop. When there are additional rows to the table, you just execute the sqoop job.
+
+sqoop job --create myJob -- import --connect jdbc:mysql://localhost:3306/retail_db --username root --password cloudera --m 2 --table customers
+--split-by customer_id
+--target-dir /user/cloudera/customer2  --incremental append
+--check-column custid --last-value 0
+
+
+
+Note : myJob is the name of the sqoop job
+-- import : There must be a space between -- and import.
+
+
+
+Now to execute this job :
+sqoop job --exec myJob
+

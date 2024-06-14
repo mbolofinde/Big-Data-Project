@@ -237,3 +237,86 @@ Now, we will use this encrypted password. We will pass the alias : encryptedpass
 
 
 sqoop import -Dhadoop.security.credential.provider.path=jceks://hdfs/tmp/mypassword --connect jdbc:mysql://localhost:3306/retail_db --username root --password-alias encrytpassword --table customers -m 1 --target-dir /user/cloudera/data_import_encrypted
+
+
+[Notes] Using Last Modified
+If there is an update in database , say some column value changed, then it should reflect in hdfs. This is like scd type 1. Updating the hdfs to be in sync with db. Sqoop will run 2 map reduce jobs here. One Map reduce job to bring the data(here only mappers run) and the second map reduce job to compare the data(here reducers also run because it would compare from different nodes and consolidate).
+
+If you run only import, there is only mappers involved. No reducers because there is no shuffling.
+
+eg: sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password-file file:///home/cloudera/passfile --m 1 --table orders  --target-dir /user/cloudera/data_import
+
+
+
+--mysql database
+select * from orders where order_id in (68871,68809,68817,68827);
+
+
+
+Now lets update/insert  values in the table :
+
+update orders set order_status='test1' where custid=68809; --2014-03-12
+update orders set order_status='test2' where custid=68817; -- 2014-03-27
+update orders set order_status='test3' where custid=68827; -- 2014-04-16
+update orders set order_status='test4' where custid=68871;  -- 2014-06-28
+
+
+
+Below is the query for last modified:
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password-file file:///home/cloudera/passfile --m 1 --table order
+  --target-dir  /user/cloudera/cust_mod --incremental lastmodified --check-column order_date --last-value 2014-04-15 --merge-key order_id
+
+
+
+Here, --check-colum createdt : mention the column where it should pick data for comparison
+
+--last-value : Give the value for createdt . From this value, it would pick the data
+
+--merge-key : Column used for comparison
+
+
+[Notes] Import multiple File Formats
+Import as Sequence File :
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password-file file:///home/cloudera/passfile --m 1 --table order
+ --target-dir /user/cloudera/sequence_dir --as-sequencefile 
+ 
+Import as AVRO File:
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password-file file:///home/cloudera/passfile --m 1 --table order
+ --target-dir /user/cloudera/avro_dir 
+ --as-avrodatafile
+ 
+Import as Parquet File:
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password-file file:///home/cloudera/passfile --m 1 --table order
+ --target-dir /user/cloudera/parquet_dir 
+--as-parquetfile
+ 
+Import as ORC :  
+
+There is no equivalent of –as-avrodatafile or –as-sequence or –as-parquetfile for ORC. In order to import as ORC file, we need to leverage the sqoop’s Hcatalog integration feature. HCatalog is a table storage management tool for Hadoop that exposes the tabular data of Hive metastore to other Hadoop applications. 
+It enables users with different data processing tools (Pig, MapReduce) to easily write data onto a grid.
+
+You can think of Hcatalog as an API to access Hive metastore.
+ 
+To import as ORC, it involves the below two steps:
+1) Create Hive Database with your desired HDFS warehouse location
+2) Run Sqoop import command to import from RDBMS table to Hcatalog table
+Let’s sqoop import the table : customermod3 as ORC. We basically import the data into some hive database. We can ask the sqoop to create a hive table. So basically a hive table will be created and the directory for that hive table will be in ORC format.
+ 
+Here is the sqoop import command :
+
+create database first in HIve 
+
+sqoop import --connect jdbc:mysql://localhost:3306/retail_db --username root --password-file file:///home/cloudera/passfile --m 1 --table orders --m 1 --hcatalog-database test --hcatalog-table orders --create-hcatalog-table --hcatalog-storage-stanza "stored as orcfile";
+
+Additional options here are the –hcatalog options where we are giving the database name, hive table to be created and how the storage needs to happen. So hive table will be created under a database test.
+
+[Notes] Import multiple Tables
+Below query imports all except for few tables:
+sqoop import-all-tables --connect jdbc:mysql://localhost:3306/retail_db --username root --password-file file:///home/cloudera/passfile --m 1
+--exclude-tables categories,customers,orders --warehouse-dir /user/cloudera/tables;
+
+
+
+import-all-tables will import all the tables. But since I want to import only 2 tables, I have to skip the remaining tables. This we can do using –exclude-tables.
+
+--warehouse-dir is same as –target-dir except that in –target-dir a folder is created by the table name and then we have part files in it. In warehouse-dir, an extra folder is created and inside that we have folder for each table. Since we are using multiple tables here, we are using –warehouse-dir instead of –target-dir.
